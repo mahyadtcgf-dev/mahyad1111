@@ -59,19 +59,21 @@ class Inbound(Base):
     server = relationship("Server", back_populates="inbounds")
     configs = relationship("Configuration", back_populates="inbound")
 
-class Configuration(Base):
-    __tablename__ = "configurations"
+class Subscription(Base):
+    __tablename__ = "subscriptions"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    sub_id = Column(String, ForeignKey("subscriptions.id"))
-    server_id = Column(String, ForeignKey("servers.id"))
-    inbound_id = Column(String, ForeignKey("inbounds.id")) # Added reference to Inbound
-    protocol = Column(String, nullable=False)
-    config_data = Column(JSON, nullable=False)
-    link = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(String, ForeignKey("users.id"))
+    token = Column(String, unique=True, index=True, nullable=False)
+    traffic_limit = Column(BigInteger, default=0) # bytes
+    traffic_used = Column(BigInteger, default=0)
+    expiration_date = Column(DateTime, nullable=True)
+    device_limit = Column(Integer, default=1)
+    status = Column(String, default="ACTIVE")
     
-    subscription = relationship("Subscription", back_populates="configs")
-    inbound = relationship("Inbound", back_populates="configs")
+    user = relationship("User", back_populates="subscriptions")
+    configs = relationship("Configuration", back_populates="subscription")
+
+class Configuration(Base):
 
 def get_db():
     db = SessionLocal()
