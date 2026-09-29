@@ -23,7 +23,7 @@ COPY . .
 # Create data directory for persistent storage (volumes)
 RUN mkdir -p /data
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Start the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
