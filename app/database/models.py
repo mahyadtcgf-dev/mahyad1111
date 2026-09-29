@@ -40,35 +40,38 @@ class Server(Base):
     endpoint = Column(String, nullable=False)
     port = Column(Integer, nullable=False)
     location = Column(String)
-    protocols = Column(JSON) # List of supported protocols
     status = Column(String, default="ONLINE")
     last_seen = Column(DateTime, default=datetime.utcnow)
-
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"))
-    token = Column(String, unique=True, index=True, nullable=False)
-    traffic_limit = Column(BigInteger, default=0) # bytes
-    traffic_used = Column(BigInteger, default=0)
-    expiration_date = Column(DateTime, nullable=True)
-    device_limit = Column(Integer, default=1)
-    status = Column(String, default="ACTIVE")
     
-    user = relationship("User", back_populates="subscriptions")
-    configs = relationship("Configuration", back_populates="subscription")
+    inbounds = relationship("Inbound", back_populates="server")
+
+class Inbound(Base):
+    __tablename__ = "inbounds"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    server_id = Column(String, ForeignKey("servers.id"))
+    protocol = Column(String, nullable=False) # vless, vmess, trojan, shadowsocks
+    port = Column(Integer, nullable=False)
+    transport = Column(String, default="ws") # ws, grpc, tcp, xhttp
+    path = Column(String, default="/")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    server = relationship("Server", back_populates="inbounds")
+    configs = relationship("Configuration", back_populates="inbound")
 
 class Configuration(Base):
     __tablename__ = "configurations"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     sub_id = Column(String, ForeignKey("subscriptions.id"))
     server_id = Column(String, ForeignKey("servers.id"))
+    inbound_id = Column(String, ForeignKey("inbounds.id")) # Added reference to Inbound
     protocol = Column(String, nullable=False)
     config_data = Column(JSON, nullable=False)
     link = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     subscription = relationship("Subscription", back_populates="configs")
+    inbound = relationship("Inbound", back_populates="configs")
 
 def get_db():
     db = SessionLocal()
