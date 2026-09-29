@@ -27,6 +27,9 @@ app = FastAPI(
 # Include Routers
 app.include_router(auth_router)
 app.include_router(sub_router)
+app.include_router(user_router)
+app.include_router(server_router)
+app.include_router(config_router)
 
 def create_initial_admin():
     """Creates a default admin user if one doesn't exist."""
