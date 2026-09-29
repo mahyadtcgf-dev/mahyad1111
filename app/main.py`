@@ -1,0 +1,132 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from app.database.models import get_db, Base, engine, SessionLocal, User, Server, Inbound
+from app.auth.router import router as auth_router
+from app.subscriptions.router import router as sub_router
+from app.users.router import router as user_router
+from app.servers.router import router as server_router
+from app.configurations.router import router as config_router
+from app.inbounds.router import router as inbound_router
+from app.auth.security import get_password_hash
+from app.core.xray_manager import XrayManager
+import logging
+import os
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("vpn-panel")
+
+app = FastAPI(
+    title="Professional VPN Management Panel",
+    description="A high-performance VPN management system for Railway.app",
+    version="1.0.0"
+)
+
+# 1. Health check MUST be first and fast (no DB dependency)
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "version": "1.0.0"}
+
+@app.get("/ready")
+async def ready_check(db: Session = Depends(get_db)):
+    try:
+        db.execute("SELECT 1")
+        return {"status": "ready"}
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+# 2. Xray Manager Instance
+xray = XrayManager(SessionLocal)
+
+# 3. Include Routers
+app.include_router(auth_router)
+app.include_router(sub_router)
+app.include_router(user_router)
+app.include_router(server_router)
+app.include_router(config_router)
+app.include_router(inbound_router)
+
+# 4. Safe Static Files Mounting
+frontend_path = "frontend"
+if os.path.exists(frontend_path):
+    try:
+        app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+        @app.get("/")
+        async def read_index():
+            return FileResponse(os.path.join(frontend_path, "index.html"))
+    except Exception as e:
+        logger.error(f"Error mounting static files: {e}")
+else:
+    logger.error(f"Frontend directory NOT FOUND at {frontend_path}")
+    @app.get("/")
+    async def read_index():
+        return {"error": "Frontend not found. Please check deployment."}
+
+def create_initial_data():
+    """Creates default admin, server and inbounds if they don't exist."""
+    try:
+        # Only attempt DB operations if we are not in a critical startup path
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        
+        # Default Admin
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            logger.info("Creating default admin user: admin/admin")
+            admin = User(
+                username="admin",
+                password_hash=get_password_hash("admin"),
+                email="admin@example.com",
+                role="SUPER_ADMIN",
+                is_//active=True
+            )
+            db.add(admin)
+        
+        # Default Server
+        default_server = db.query(Server).first()
+        if not default_server:
+            logger.info("Creating default server")
+            server = Server(
+                label="Default-Global",
+                endpoint="vpn.example.com",
+                port=443,
+                location="Global",
+                status="ONLINE"
+            )
+            db.add(server)
+            db.flush() 
+            
+            # Default Inbounds
+            inbounds = [
+                Inbound(server_id=server.id, protocol="vless", port=8080, transport="ws", path="/vless-ws"),
+                Inbound(server_id=server.id, protocol="trojan", port=8443, transport="tcp", path="/"),
+                Inbound(server_id=server.id, protocol="shadowsocks", port=8888, transport="tcp", path="/"),
+            ]
+            db.add_all(inbounds)
+            
+        db.commit()
+        db.close()
+        logger.info("Initial data setup completed.")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}. The app will start without DB data.")
+
+@app.on_event("startup")
+async def startup_event():
+    port = os.getenv("PORT", "8080")
+    logger.info(f"Application starting up on port {port}...")
+    
+    # Run DB setup in a way that doesn't block the server from starting
+    create_initial_data()
+    
+    # Start Xray-core
+    try:
+        xray.start()
+    except Exception as e:
+        logger.error(f"Xray failed to start: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    xray.stop()
