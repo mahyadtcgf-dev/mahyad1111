@@ -74,6 +74,18 @@ class Subscription(Base):
     configs = relationship("Configuration", back_populates="subscription")
 
 class Configuration(Base):
+    __tablename__ = "configurations"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    sub_id = Column(String, ForeignKey("subscriptions.id"))
+    server_id = Column(String, ForeignKey("servers.id"))
+    inbound_id = Column(String, ForeignKey("inbounds.id"))
+    protocol = Column(String, nullable=False)
+    config_data = Column(JSON, nullable=False)
+    link = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    subscription = relationship("Subscription", back_populates="configs")
+    inbound = relationship("Inbound", back_populates="configs")
 
 def get_db():
     db = SessionLocal()

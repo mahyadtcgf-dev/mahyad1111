@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from app.database.models import get_db, Base, engine, SessionLocal, User
 from app.auth.router import router as auth_router
 from app.subscriptions.router import router as sub_router
+from app.users.router import router as user_router
+from app.servers.router import router as server_router
+from app.configurations.router import router as config_router
 from app.auth.security import get_password_hash
 import logging
 import os
