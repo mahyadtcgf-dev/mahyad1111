@@ -1,4 +1,4 @@
-from typing import Dict, Type, Optional
+from typing import Dict, Type, Optional, List
 import logging
 from app.protocols.base.base import BaseProtocol
 
