@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database.models import get_db, User
-from app.auth.security import verify_password, create_access_token, decode_access_token
+from app.auth.security import verify_password, create_access_token, create_refresh_token, decode_access_token
 from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -31,7 +31,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         )
     
     access_token = create_access_token(data={"sub": user.username, "role": user.role})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(data={"sub": user.username})
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token, 
+        "token_type": "bearer"
+    }
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):

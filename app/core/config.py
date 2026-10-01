@@ -13,11 +13,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 # 24 hours
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/vpn_db"
+    DATABASE_URL: str = "postgresql://postgres:***@localhost:5432/vpn_db"
+    REDIS_URL: str = "redis://redis.railway.internal:6379/0"
     
     # Railway / Network
     PUBLIC_DOMAIN: Optional[str] = None
     PORT: int = 8080
+    CORS_ORIGINS: list[str] = ["*"]
     
     # VPN / Protocols
     DEFAULT_TRAFFIC_LIMIT: int = 100 * 1024 * 1024 * 1024 # 100 GB

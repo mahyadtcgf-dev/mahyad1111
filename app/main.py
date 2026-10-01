@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
 from sqlalchemy.orm import Session
 from app.database.models import get_db, Base, engine, SessionLocal, User
 from app.auth.router import router as auth_router
@@ -6,6 +8,7 @@ from app.subscriptions.router import router as sub_router
 from app.users.router import router as user_router
 from app.servers.router import router as server_router
 from app.configurations.router import router as config_router
+from app.servers import heartbeat
 from app.auth.security import get_password_hash
 import logging
 import os
@@ -27,12 +30,21 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 # Include Routers
 app.include_router(auth_router)
 app.include_router(sub_router)
 app.include_router(user_router)
 app.include_router(server_router)
 app.include_router(config_router)
+app.include_router(heartbeat.router)
 
 def create_initial_admin():
     """Creates a default admin user if one doesn't exist."""

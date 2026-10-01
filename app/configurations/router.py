@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.models import get_db, Configuration, Subscription, Server, User
-from app.auth.router import get_current_user
+from app.auth.dependencies import is_admin
 from app.protocols.registry import registry
 from pydantic import BaseModel
 import uuid
@@ -15,7 +15,7 @@ class ConfigCreate(BaseModel):
     params: dict = {}
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_config(config_in: ConfigCreate, db: Session = Depends(get_db), admin=Depends(get_current_user)):
+async def create_config(config_in: ConfigCreate, db: Session = Depends(get_db), admin=Depends(is_admin)):
     if admin.role not in ["SUPER_ADMIN", "ADMIN"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
@@ -42,7 +42,7 @@ async def create_config(config_in: ConfigCreate, db: Session = Depends(get_db), 
         db.refresh(sub)
     
     # 4. Generate Protocol-specific Data
-    params = {**config_in.params, "endpoint": server.endpoint, "port": server.port}
+    params = {**config_in.params, "endpoint": server.endpoint, "port": server.port, "server": server}
     proto_data = await handler.create(config_in.user_id, params)
     
     # 5. Generate Final Link
